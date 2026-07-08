@@ -4,20 +4,19 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // ===== گۆڕاوە گشتییەکان =====
 let allData = [];
-let currentTable = 'closed_signals';
+let currentTable = 'closed'; // 'closed' یان 'open'
 let chartInstance = null;
 let doughnutChart = null;
 let currentTimeFilter = 'all';
 let currentRoiPeriod = 'ALL';
-let closedData = [];
 let roiLineChart = null;
 
 const $ = (id) => document.getElementById(id);
 
-// ===== هێنانی داتا لە Supabase =====
-async function fetchData(table) {
+// ===== هێنانی هەموو داتاکان لە خشتەی 'signals' =====
+async function fetchSignals() {
     try {
-        const url = `${SUPABASE_URL}/rest/v1/${table}?select=*&order=id.desc`;
+        const url = `${SUPABASE_URL}/rest/v1/signals?select=*&order=id.desc`;
         const res = await fetch(url, {
             headers: {
                 'apikey': SUPABASE_KEY,
@@ -32,23 +31,17 @@ async function fetchData(table) {
     }
 }
 
-// ===== گۆڕینی تەیبڵ =====
+// ===== گۆڕینی تاب (تەنها فیلتەر) =====
 async function switchTable(table) {
     currentTable = table;
     document.querySelectorAll('.tabs button').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.table === table);
     });
-    allData = await fetchData(table);
     applyFilters();
     updateROI();
 }
 
-// ===== ROI چارت (هەموو کات لە closed_signals) =====
-async function loadClosedData() {
-    closedData = await fetchData('closed_signals');
-    renderRoiLineChart();
-}
-
+// ===== ROI =====
 function filterByRoiPeriod(data, period) {
     if (period === 'ALL') return data;
     const now = new Date();
@@ -68,12 +61,10 @@ function updateROI() {
     renderRoiLineChart();
 }
 
-// ===== ڕاکێشانی هێڵی ROI =====
 function renderRoiLineChart() {
+    const closedData = allData.filter(r => r.closed_at !== null && r.closed_at !== undefined && r.closed_at !== '');
     const period = currentRoiPeriod;
     let filtered = filterByRoiPeriod(closedData, period);
-
-    // ڕیزکردن بەپێی کات (کۆن بۆ نوێ)
     filtered = [...filtered].sort((a, b) =>
         new Date(a.closed_at || a.created_at) - new Date(b.closed_at || b.created_at)
     );
@@ -83,7 +74,7 @@ function renderRoiLineChart() {
     const values = [];
 
     filtered.forEach(row => {
-        const p = getProfit(row); // ئەمە ئێستا result_pips دەگەڕێنێتەوە
+        const p = getProfit(row);
         if (p === null) return;
         cumulativePips += p;
         labels.push(formatDate(row.closed_at || row.created_at));
@@ -166,7 +157,7 @@ function renderRoiLineChart() {
     });
 }
 
-// ===== ڕۆژمێری فیلتەرەکانی ROI =====
+// ===== فیلتەرەکانی ROI =====
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('#roiFilters button').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -180,23 +171,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // ===== یارمەتییەکان =====
 function getOutcome(row) {
-    // بە پێی داتای تۆ: result یان TP_HIT, SL_HIT, TRAILING_SL_HIT
-    // وەک WIN یان LOSS دەستنیشان بکە
     if (row.result && row.result.toUpperCase() === 'TP_HIT') return 'WIN';
     if (row.result && (row.result.toUpperCase() === 'SL_HIT' || row.result.toUpperCase() === 'TRAILING_SL_HIT')) return 'LOSS';
-    // ئەگەر status = OPEN بێت، وەک OPEN دابنێ
     if (row.status && row.status.toUpperCase() === 'OPEN') return 'OPEN';
-    // ئەگەر هیچیان نەبوو، بپرسیارە کە داخراوە یان نا
-    if (row.closed_at) return 'BE'; // ئەگەر داخراوە بەڵام نە TP_HIT نە SL_HIT، BE دابنێ
+    if (row.closed_at) return 'BE';
     return 'OPEN';
 }
 
 function getProfit(row) {
-    // بەکارهێنانی result_pips کە لە CSVدا هەیە
     if (row.result_pips !== null && row.result_pips !== undefined && row.result_pips !== '') {
         return parseFloat(row.result_pips) || 0;
     }
-    // ئەگەر نەبوو، هەوڵبدە لە entry و current_sl هەژمار بکە
     if (row.entry_min && row.current_sl) {
         const entry = parseFloat(row.entry_min);
         const sl = parseFloat(row.current_sl);
@@ -271,8 +256,6 @@ function renderStats(data) {
     const open = data.filter(r => !r.closed_at);
     const wins = closed.filter(r => getOutcome(r) === 'WIN');
     const losses = closed.filter(r => getOutcome(r) === 'LOSS');
-    // BE: ئەوانەی داخراون بەڵام نە WIN نە LOSS (بۆ نموونە TRAILING_SL_HIT؟)
-    // بەم جۆرە هەژمار دەکەین: لە closedدا، ئەوانەی نە WIN نە LOSS، BEن.
     const decided = wins.length + losses.length;
     const winRate = decided > 0 ? (wins.length / decided * 100) : 0;
 
@@ -452,7 +435,6 @@ function renderTable(data) {
         const profitClass = (profit !== null && profit > 0) ? 'profit-positive' :
             (profit !== null && profit < 0) ? 'profit-negative' : 'text-muted';
 
-        // بەکارهێنانی entry_min وەک entry، stop_loss وەک SL، take_profits وەک لیستی TP
         const entry = row.entry_min ?? '-';
         const sl = row.stop_loss ?? '-';
         let tp1 = '-', tp2 = '-';
@@ -487,7 +469,15 @@ function getFilteredData() {
     const out = $('filterOutcome').value;
     const search = $('searchInput').value.toLowerCase().trim();
 
-    return allData.filter(row => {
+    let filtered = allData;
+
+    if (currentTable === 'closed') {
+        filtered = filtered.filter(r => r.closed_at !== null && r.closed_at !== undefined && r.closed_at !== '');
+    } else if (currentTable === 'open') {
+        filtered = filtered.filter(r => r.closed_at === null || r.closed_at === undefined || r.closed_at === '');
+    }
+
+    filtered = filtered.filter(row => {
         if (dir !== 'all' && row.direction !== dir) return false;
         if (out !== 'all') {
             const rowOut = getOutcome(row);
@@ -501,6 +491,8 @@ function getFilteredData() {
         }
         return true;
     });
+
+    return filtered;
 }
 
 function applyFilters() {
@@ -514,32 +506,20 @@ function applyFilters() {
 async function init() {
     $('lastUpdate').textContent = 'Loading...';
 
-    // بەستنی ڕووداوەکان
     $('filterDirection').addEventListener('change', applyFilters);
     $('filterOutcome').addEventListener('change', applyFilters);
     $('searchInput').addEventListener('input', applyFilters);
 
-    // هێنانی داتای سەرەتا (بەپێی tabی چالاک کە closed_signalsە)
-    allData = await fetchData('closed_signals');
-    // هێنانی closedData بۆ ROI
-    closedData = await fetchData('closed_signals');
-
-    // کێشانی ROI
-    renderRoiLineChart();
-    // پیشاندانی هەموو شتەکان
+    allData = await fetchSignals();
     applyFilters();
+    updateROI();
 
-    // نوێکردنەوەی خۆکار هەر 30 چرکە
     setInterval(async () => {
-        const newData = await fetchData(currentTable);
+        const newData = await fetchSignals();
         if (newData.length !== allData.length) {
             allData = newData;
             applyFilters();
-        }
-        const newClosed = await fetchData('closed_signals');
-        if (newClosed.length !== closedData.length) {
-            closedData = newClosed;
-            renderRoiLineChart();
+            updateROI();
         }
     }, 30000);
 }
