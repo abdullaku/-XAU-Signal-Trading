@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XAU SIGNAL BOT - Dashboard</title>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- زیادکراو: بەستنەوە بە Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+    <div class="container" id="app">
+
+        <header class="header">
+            <div>
+                <h1>XAU SIGNAL BOT</h1>
+                <div class="sub">XAUUSD · Signal Dashboard</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div class="badge-live">
+                    <span class="dot"></span> Live
+                </div>
+            </div>
+        </header>
+
+        <div style="text-align:right;font-size:11px;color:#3a4a5e;margin-bottom:16px;">
+            <i class="fas fa-clock"></i>
+            <span id="lastUpdate">Loading...</span>
+        </div>
+
+        <div class="roi-card">
+            <div class="roi-header">
+                <h2><i class="fas fa-chart-line" style="color:#f1c40f;margin-right:6px;"></i> Strategy Stats</h2>
+                <div class="roi-filters" id="roiFilters">
+                    <button class="active" data-period="1D">1D</button>
+                    <button data-period="1W">1W</button>
+                    <button data-period="1M">1M</button>
+                    <button data-period="3M">3M</button>
+                    <button data-period="6M">6M</button>
+                    <button data-period="ALL">All</button>
+                </div>
+            </div>
+            <div class="roi-body">
+                <div class="roi-main">
+                    <div class="roi-value" id="roiValue">+0.0%</div>
+                    <div class="roi-change">
+                        <span id="roiChange">+0.0%</span>
+                    </div>
+                </div>
+                <div class="roi-period">
+                    <span id="roiPeriod">All Time</span>
+                </div>
+            </div>
+            <div class="roi-chart-wrap">
+                <canvas id="roiLineChart"></canvas>
+                <div id="roiChartEmpty" class="roi-chart-empty" style="display:none;">No closed signals yet</div>
+            </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card blue">
+                <div class="icon"><i class="fas fa-signal"></i></div>
+                <div class="value" id="totalSignals">-</div>
+                <div class="label">Total</div>
+            </div>
+            <div class="stat-card orange">
+                <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+                <div class="value" id="openSignals">-</div>
+                <div class="label">Open</div>
+            </div>
+            <div class="stat-card purple">
+                <div class="icon"><i class="fas fa-check-circle"></i></div>
+                <div class="value" id="closedSignals">-</div>
+                <div class="label">Closed</div>
+            </div>
+            <div class="stat-card green">
+                <div class="icon"><i class="fas fa-trophy"></i></div>
+                <div class="value" id="winCount">-</div>
+                <div class="label">WIN</div>
+            </div>
+            <div class="stat-card red">
+                <div class="icon"><i class="fas fa-times-circle"></i></div>
+                <div class="value" id="lossCount">-</div>
+                <div class="label">LOSS</div>
+            </div>
+            <div class="stat-card gold">
+                <div class="icon"><i class="fas fa-star"></i></div>
+                <div class="value" id="winRate">-</div>
+                <div class="label">Win Rate</div>
+            </div>
+            <div class="stat-card cyan">
+                <div class="icon"><i class="fas fa-coins"></i></div>
+                <div class="value" id="totalProfit">-</div>
+                <div class="label">Total P/L</div>
+            </div>
+        </div>
+
+        <div class="extra-stats">
+            <div class="extra-stat gold">
+                <div class="value" id="bestDay">-</div>
+                <div class="label">Best Day</div>
+            </div>
+            <div class="extra-stat red">
+                <div class="value" id="worstDay">-</div>
+                <div class="label">Worst Day</div>
+            </div>
+            <div class="extra-stat cyan">
+                <div class="value" id="avgProfit">-</div>
+                <div class="label">Avg Profit</div>
+            </div>
+            <div class="extra-stat green">
+                <div class="value" id="maxProfit">-</div>
+                <div class="label">Max Profit</div>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-box">
+                <div class="chart-header">
+                    <h3><i class="fas fa-chart-pie"></i> WIN / LOSS Ratio</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="doughnutChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-box">
+                <div class="chart-header">
+                    <h3><i class="fas fa-chart-bar"></i> Profit / Loss by Date</h3>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+                    <select id="timeFilter" style="background:#131b26;color:#e8edf5;border:1px solid #1f2a38;padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;flex:1;min-width:80px;">
+                        <option value="all">All</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                        <option value="3months">Last 3 Months</option>
+                    </select>
+                    <button onclick="applyTimeFilter()" style="background:#f1c40f;color:#070b12;border:none;padding:5px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px;">Filter</button>
+                    <button onclick="resetTimeFilter()" style="background:transparent;color:#8892a8;border:1px solid #1f2a38;padding:5px 16px;border-radius:8px;cursor:pointer;font-size:12px;">Reset</button>
+                </div>
+                <div class="chart-container" style="height:170px;">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="active" data-table="closed" onclick="switchTable('closed_signals')">
+                <i class="fas fa-check-circle"></i> Closed
+            </button>
+            <button data-table="open" onclick="switchTable('open_signals')">
+                <i class="fas fa-hourglass-half"></i> Open
+            </button>
+        </div>
+
+        <div class="filter-section">
+            <label><i class="fas fa-filter"></i> Filter:</label>
+
+            <select id="filterDirection">
+                <option value="all">All Directions</option>
+                <option value="BUY">BUY</option>
+                <option value="SELL">SELL</option>
+            </select>
+
+            <select id="filterOutcome">
+                <option value="all">All Outcomes</option>
+                <option value="WIN">WIN</option>
+                <option value="LOSS">LOSS</option>
+                <option value="BE">BE</option>
+                <option value="OPEN">OPEN</option>
+            </select>
+
+            <div class="search-wrapper">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search..." />
+            </div>
+        </div>
+
+        <div class="table-wrapper">
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Symbol</th>
+                            <th>Direction</th>
+                            <th>Entry</th>
+                            <th>SL</th>
+                            <th>TP1</th>
+                            <th>TP2</th>
+                            <th>Outcome</th>
+                            <th>Profit</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="10" class="loading"><i class="fas fa-spinner"></i> Loading data...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div>© 2026 <a href="#">XAU SIGNAL BOT</a> · All rights reserved</div>
+        </div>
+
+    </div>
+
+    <!-- بارکردنی script.js -->
+    <script src="script.js"></script>
+</body>
+</html>
