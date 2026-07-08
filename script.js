@@ -13,7 +13,7 @@ let roiLineChart = null;
 
 const $ = (id) => document.getElementById(id);
 
-// ===== هێنانی هەموو داتاکان لە خشتەی 'signals' =====
+// ===== هێنانی داتاکان لە خشتەی 'signals' =====
 async function fetchSignals() {
     try {
         const url = `${SUPABASE_URL}/rest/v1/signals?select=*&order=id.desc`;
@@ -31,7 +31,7 @@ async function fetchSignals() {
     }
 }
 
-// ===== گۆڕینی تاب (تەنها فیلتەر) =====
+// ===== گۆڕینی تاب =====
 async function switchTable(table) {
     currentTable = table;
     document.querySelectorAll('.tabs button').forEach(btn => {
@@ -471,6 +471,7 @@ function getFilteredData() {
 
     let filtered = allData;
 
+    // فیلتەری تاب (closed / open)
     if (currentTable === 'closed') {
         filtered = filtered.filter(r => r.closed_at !== null && r.closed_at !== undefined && r.closed_at !== '');
     } else if (currentTable === 'open') {
