@@ -4,7 +4,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // ===== گۆڕاوە گشتییەکان =====
 let allData = [];
-let currentTable = 'closed'; // 'closed' یان 'open'
+let currentTable = 'closed';
 let chartInstance = null;
 let doughnutChart = null;
 let currentTimeFilter = 'all';
@@ -17,16 +17,19 @@ const $ = (id) => document.getElementById(id);
 async function fetchSignals() {
     try {
         const url = `${SUPABASE_URL}/rest/v1/signals?select=*&order=id.desc`;
+        console.log('🔍 خوێندنی داتا لە:', url);
         const res = await fetch(url, {
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
             },
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
+        if (!res.ok) throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+        const data = await res.json();
+        console.log('✅ داتا وەرگیرا:', data.length, 'ڕیکۆرد');
+        return data;
     } catch (err) {
-        console.error('Fetch error:', err);
+        console.error('❌ هەڵەی هێنانی داتا:', err);
         return [];
     }
 }
@@ -471,7 +474,6 @@ function getFilteredData() {
 
     let filtered = allData;
 
-    // فیلتەری تاب (closed / open)
     if (currentTable === 'closed') {
         filtered = filtered.filter(r => r.closed_at !== null && r.closed_at !== undefined && r.closed_at !== '');
     } else if (currentTable === 'open') {
@@ -512,6 +514,7 @@ async function init() {
     $('searchInput').addEventListener('input', applyFilters);
 
     allData = await fetchSignals();
+    console.log('📊 داتا ئامادەیە بۆ پیشاندان:', allData.length, 'ڕیکۆرد');
     applyFilters();
     updateROI();
 
