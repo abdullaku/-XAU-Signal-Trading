@@ -529,3 +529,13 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+
+let customStartDate=null;
+let customEndDate=null;
+function applyCustomDate(){
+ customStartDate=document.getElementById('startDate').value;
+ customEndDate=document.getElementById('endDate').value;
+ document.getElementById('customDateModal').style.display='none';
+ if(typeof renderDashboard==='function'){renderDashboard();}
+}
